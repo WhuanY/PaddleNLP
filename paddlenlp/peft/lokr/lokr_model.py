@@ -16,7 +16,7 @@ import copy
 import os
 import re
 from collections import OrderedDict
-from typing import Dict, List, Union
+from typing import Dict, Union
 
 import numpy as np
 import paddle
@@ -47,7 +47,6 @@ AVAILABLE_LAYERS = [
 
 
 class LoKrModel(nn.Layer):
-    # TODO:lugimzzz support restore in following PR
     restore_layer_map: Dict[nn.Layer, nn.Layer] = {
         LoKrLinear: nn.Linear,
     }
@@ -147,7 +146,7 @@ class LoKrModel(nn.Layer):
                     model_config_to_save.tensor_parallel_degree = -1
                 model_config_to_save.save_pretrained(save_directory)
 
-    def _find_and_replace_module(self, model, module_name, lokr_config, enable_lokr):
+    def _find_and_replace_module(self, model, module_name, lokr_config):
         parent_module = model
         attribute_chain = module_name.split(".")
         for name in attribute_chain[:-1]:
@@ -229,52 +228,23 @@ class LoKrModel(nn.Layer):
                     weight.stop_gradient = False
 
     def get_lokr_model(self, model: Union[PretrainedModel, nn.Layer], lokr_config: LoKrConfig):
+        """
+        Iterate all base model layers, change target modules to LoKrLayer.
+        """
         if lokr_config.target_modules is None:
             return model
-        elif isinstance(lokr_config.target_modules, str):
-            target_modules = [lokr_config.target_modules]
-            if lokr_config.enable_lokr_list is None or (
-                isinstance(lokr_config.enable_lokr_list, List)
-                and all(isinstance(item, bool) for item in lokr_config.enable_lokr_list)
-            ):
-                enable_lokr_list = [lokr_config.enable_lokr_list]
-            else:
-                raise TypeError(
-                    f"Invalid `enable_lokr_list` value: {lokr_config.enable_lokr_list}. Since `target_modules` is `str`, `enable_lokr_list` must be `None` or `List[bool]`"
-                )
         else:
             target_modules = lokr_config.target_modules
-            if lokr_config.enable_lokr_list is None:
-                enable_lokr_list = [None for _ in range(len(target_modules))]
-            elif isinstance(lokr_config.enable_lokr_list, List):
-                enable_lokr_list = lokr_config.enable_lokr_list
-                if len(enable_lokr_list) != len(target_modules):
-                    raise TypeError(
-                        f"Invalid lokr_config.enable_lokr_list value: {lokr_config.enable_lokr_list}. Since lokr_config.target_modules is `List[str]`, `enable_lokr_list` should have the same length as `target_modules`"
-                    )
-                for enable_lokr in enable_lokr_list:
-                    if not (
-                        enable_lokr is None
-                        or (isinstance(enable_lokr, List) and all(isinstance(item, bool) for item in enable_lokr))
-                    ):
-                        raise TypeError(
-                            f"Invalid `enable_lokr_list` value: {lokr_config.enable_lokr_list}. Since `target_modules` is `List[str]`, `enable_lork_list` must be `None` or  `List[Optional[List[bool]]]`"
-                        )
-            else:
-                raise TypeError(
-                    f"Invalid `enable_lokr_list` value: {lokr_config.enable_lokr_list}. Since `target_modules` is `List[str]`, `enable_lokr_list` must be `None` or `List[Optional[List[bool]]]`"
-                )
 
-        for target_module, enable_lokr in zip(target_modules, enable_lokr_list):
+        for target_module in target_modules:
             for i in model.named_sublayers():
                 module_name = i[0]
                 if re.fullmatch(target_module, module_name):
-                    self._find_and_replace_module(model, module_name, lokr_config, enable_lokr)
+                    self._find_and_replace_module(model, module_name, lokr_config)
         return model
 
     def restore_original_model(self):
-        # make sure W and lora weights are not merged before we restore the original model
-
+        # make sure W and lokr weights are not merged before we restore the original model
         for layer_name, layer in self.model.named_sublayers():
             if isinstance(layer, LoKrLinear):
                 self._find_and_restore_module(layer_name)

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+from typing import Tuple
 
 import paddle
 import paddle.nn as nn
@@ -35,15 +36,15 @@ class LoKrLinear(nn.Linear):
     ):
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
         if not isinstance(lora_dim, int) or lora_dim <= 0:
-            raise ValueError("Lora dimension lora_dim should be a positive integer")
+            raise ValueError("w_2 matrix lora dimension lora_dim should be a positive integer")
         self.lora_dim = lora_dim
         self.use_w1 = False
         self.use_w2 = False
         # Mark the weight as unmerged
         self.merged = False
         in_m, in_n = factorization(in_features, factor)
-        out_l, out_k = factorization(out_features, factor)
-        shape = ((out_l, out_k), (in_m, in_n))
+        out_m, out_n = factorization(out_features, factor)
+        shape = ((out_m, out_n), (in_m, in_n))
         self.op = F.linear
 
         # determining lokr_alpha
@@ -53,8 +54,6 @@ class LoKrLinear(nn.Linear):
         if self.use_w2 and self.use_w1:
             lokr_alpha = lora_dim
         self.scale = lokr_alpha / self.lora_dim
-
-        self.register_buffer("lokr_alpha", paddle.to_tensor(lokr_alpha))
 
         # Actual trainable parameters
         if decompose_both and lora_dim < max(shape[0][0], shape[1][0]) / 2:
@@ -86,13 +85,20 @@ class LoKrLinear(nn.Linear):
             )  # a*c, 1-mode
 
         if lora_dim < max(shape[0][1], shape[1][1]) / 2:
-            self.lokr_w2_a = self.create_parameter(shape=[shape[0][1], lora_dim])
+            self.lokr_w2_a = self.create_parameter(
+                shape=[shape[0][1], lora_dim],
+                dtype=self._dtype,
+                is_bias=False,
+                attr=paddle.ParamAttr(
+                    initializer=nn.initializer.KaimingUniform(negative_slope=math.sqrt(5), nonlinearity="leaky_relu"),
+                ),
+            )
             self.lokr_w2_b = self.create_parameter(
                 shape=[lora_dim, shape[1][1]],
                 dtype=self._dtype,
                 is_bias=False,
                 attr=paddle.ParamAttr(
-                    initializer=paddle.nn.initializer.Constant(value=0.0),
+                    initializer=nn.initializer.KaimingUniform(negative_slope=math.sqrt(5), nonlinearity="leaky_relu"),
                 ),
             )
             # w1 ⊗ (w2_a x w2_b) = (a, b)⊗((c, dim)x(dim, d)) = (a, b)⊗(c, d) = (ac, bd)
@@ -103,28 +109,26 @@ class LoKrLinear(nn.Linear):
                 dtype=self._dtype,
                 is_bias=False,
                 attr=paddle.ParamAttr(
-                    initializer=paddle.nn.initializer.Constant(value=0.0),
+                    initializer=nn.initializer.KaimingUniform(negative_slope=math.sqrt(5), nonlinearity="leaky_relu"),
                 ),
             )
         adapter_weight = make_kron(
             self.lokr_w1 if self.use_w1 else self.lokr_w1_a @ self.lokr_w1_b,
             (self.lokr_w2 if self.use_w2 else self.lokr_w2_a @ self.lokr_w2_b),
             paddle.to_tensor(self.scale),
-        )  # adapter param weight initialization to be zeros
+        )
         assert paddle.sum(paddle.isnan(adapter_weight)) == 0, "weight is nan"
         # Freezing the pre-trained weight matrix
         self.weight.stop_gradient = True
         self.disable_lokr = False
 
-    def get_adapter_weight(self, orig_weight=None):
+    def get_adapter_weight(self):
         weight = make_kron(
             self.lokr_w1 if self.use_w1 else self.lokr_w1_a @ self.lokr_w1_b,
             (self.lokr_w2 if self.use_w2 else self.lokr_w2_a @ self.lokr_w2_b),
             paddle.to_tensor(self.scale),
         )
-        if orig_weight is not None:
-            weight = weight.reshape(orig_weight.shape)
-        return weight
+        return weight.T
 
     def merge(self):
         if not self.merged:
@@ -145,22 +149,55 @@ class LoKrLinear(nn.Linear):
             result = self.op(x=input, weight=self.weight, bias=self.bias, name=self.name)
         else:
             result = self.op(x=input, weight=self.weight, bias=self.bias, name=self.name)
-            result += self.op(x=input, weight=self.get_adapter_weight())
+            adapter_weight = self.get_adapter_weight()
+            result += self.op(x=input, weight=adapter_weight)
         return result
 
     def extra_repr(self):
-        name = f", name={self.name}" if self.name else ""
-        return f"in_features={self.weight.shape[0]}, out_features={self.weight.shape[1]}, rank={self.r}{name}"
+        """
+        Give detailed debug infos of LoKrModels by print(model) methods.
+        """
+        final_str = (
+            "in_features={in_feature} out_features={out_feature}bias={bias}\nlora_dim={lora_dim}\ndtype={dtype}\n"
+        )
+        info_dict = {
+            "in_feature": self.weight.shape[0],
+            "out_feature": self.weight.shape[1],
+            "bias": self.bias,
+            "lora_dim": self.lora_dim,
+            "dtype": self._dtype,
+            "adapter_weight_sacle": self.scale,
+            "name": f", name={self.name}" if self.name else "",
+        }
+        if self.use_w1:
+            info_dict["lokr_w1"] = self.lokr_w1.shape
+            final_str += "lokr_w1={lokr_w1}\n"
+        else:
+            info_dict["lokr_w1_a"] = self.lokr_w1_a.shape
+            info_dict["lokr_w1_b"] = self.lokr_w1_b.shape
+            final_str += "lokr_w1_a={lokr_w1_a}\nlokr_w1_b={lokr_w1_b}\n"
+
+        if self.use_w2:
+            info_dict["lokr_w2"] = self.lokr_w2.shape
+            final_str += "lokr_w2={lokr_w2}\n"
+        else:
+            info_dict["lokr_w2_a"] = self.lokr_w2_a.shape
+            info_dict["lokr_w2_b"] = self.lokr_w2_b.shape
+            final_str += "lokr_w2_a={lokr_w2_a}\nlokr_w2_b={lokr_w2_b}\n"
+
+        final_str += "adapter weight scale={adapter_weight_scale}\nname={name}"
+
+        return final_str.format(**info_dict)
 
 
 # Below code is a direct copy from https://github.com/KohakuBlueleaf/LyCORIS/blob/eb460098187f752a5d66406d3affade6f0a07ece/lycoris/modules/lokr.py#L11
-def factorization(dimension: int, factor: int = -1) -> tuple[int, int]:
+def factorization(dimension: int, factor: int = -1) -> Tuple[int, int]:
     """
     return a tuple of two value of input dimension decomposed by the number closest to factor
     second value is higher or equal than first value.
 
     In LoRA with Kroneckor Product, first value is a value for weight scale.
-    secon value is a value for weight.
+    second value is a value for weight.
 
     Becuase of non-commutative property, A⊗B ≠ B⊗A. Meaning of two matrices is slightly different.
 
@@ -201,6 +238,6 @@ def make_kron(w1, w2, scale):
     if len(w2.shape) == 4:
         w1 = w1.unsqueeze(2).unsqueeze(2)
     w2 = w2.contiguous()
-    rebuild = paddle.kron(w1, w2)
+    rebuild = paddle.kron(w1, w2)  # rebuild.shape: (out_features, in_features)
 
     return rebuild * scale

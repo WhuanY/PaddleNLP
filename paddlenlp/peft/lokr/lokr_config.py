@@ -67,12 +67,6 @@ class LoKrConfig:
     )
     tensor_parallel_degree: int = field(default=-1, metadata={"help": "-1 for not use tensor parallel"})
     dtype: Optional[str] = field(default=None, metadata={"help": "The data type of tensor"})
-    enable_lokr_list: Optional[Union[List[bool], List[Optional[List[bool]]]]] = field(
-        default=None,
-        metadata={
-            "help": "Provides fine-grained control over `MergedLoRALinear`. If None, `LoRALinear` is used instead."
-        },
-    )
 
     @property
     def __dict__(self):
