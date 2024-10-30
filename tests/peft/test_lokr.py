@@ -205,8 +205,8 @@ class TestLoKrConfig(unittest.TestCase):
         with TemporaryDirectory() as tempdir:
             lokr_config = LoKrConfig(**DEFAULT_MODEL_TEST_CONFIG)
             lokr_config.save_pretrained(tempdir)
-            loaded_lora_config = LoKrConfig.from_pretrained(tempdir)
-            self.assertEqual(lokr_config, loaded_lora_config)
+            loaded_lokr_config = LoKrConfig.from_pretrained(tempdir)
+            self.assertEqual(lokr_config, loaded_lokr_config)
 
 
 if __name__ == "__main__":
