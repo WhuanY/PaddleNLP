@@ -138,7 +138,7 @@ class LoKrModel(nn.Layer):
         paddle.save(trainable_state_dict, weight_filename)
 
         # save lokr config
-        if is_main_process:
+        if is_main_process:  # what is the logic of is_main_process?
             lokr_config_to_save.save_pretrained(save_directory)
             if save_model_config:
                 model_config_to_save = copy.deepcopy(self.model.config)
@@ -157,7 +157,7 @@ class LoKrModel(nn.Layer):
             lokr_module = LoKrLinear(
                 in_features=module.weight.shape[0],
                 out_features=module.weight.shape[1],
-                lora_dim=lokr_config.lora_dim,
+                lokr_dim=lokr_config.lokr_dim,
                 decompose_both=lokr_config.decompose_both,
                 lokr_alpha=lokr_config.lokr_alpha,
                 factor=lokr_config.factor,

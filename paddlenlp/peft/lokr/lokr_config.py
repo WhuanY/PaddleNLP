@@ -39,21 +39,21 @@ class LoKrConfig:
     target_modules: Optional[Union[List[str], str]] = field(
         default=None,
         metadata={
-            "help": "List of module names or regex expression of the module names to replace with Lora and Lora Variant."
+            "help": "List of module names or regex expression of the module names to replace with LoKr."
             "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
         },
     )
     trainable_modules: Optional[List[str]] = field(
         default=None,
         metadata={
-            "help": "List of module names or regex expression of the module names to train when applying with Lora and Lora Variant."
+            "help": "List of module names or regex expression of the module names to train when applying with LoKr."
             "For example, ['q', 'v'] or '.*decoder.*(SelfAttention|EncDecAttention).*(q|v)$' "
         },
     )
     trainable_bias: Optional[str] = field(
         default=None, metadata={"help": "Define trainable bias parameters for the Lora model."}
     )
-    lora_dim: int = field(default=8, metadata={"help": "Lora dimention in LoKr dimension, for adapter matrix"})
+    lokr_dim: int = field(default=8, metadata={"help": "Lora dimention in LoKr dimension, for adapter matrix"})
     factor: int = field(default=-1, metadata={"help": "Determine the decomposition size of LoKr matrices"})
     decompose_both: bool = field(
         default=False,
@@ -77,9 +77,9 @@ class LoKrConfig:
 
     @property
     def scaling(self):
-        if not (self.lokr_alpha or self.lora_dim):
+        if not (self.lokr_alpha or self.lokr_dim):
             return 1.0
-        return self.lokr_alpha / self.lora_dim
+        return self.lokr_alpha / self.lokr_dim
 
     def save_pretrained(self, save_directory):
         r"""

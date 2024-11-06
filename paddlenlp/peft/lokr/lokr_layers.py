@@ -28,16 +28,16 @@ class LoKrLinear(nn.Linear):
         self,
         in_features: int,
         out_features: int,
-        lora_dim: int = 0,
-        lokr_alpha: float = 0.0,  # self.scale is determined by lokr_alpha/lora_dim
+        lokr_dim: int = 0,
+        lokr_alpha: float = 0.0,  # self.scale is determined by lokr_alpha/lokr_dim
         factor: int = -1,
         decompose_both: bool = False,
         **kwargs
     ):
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
-        if not isinstance(lora_dim, int) or lora_dim <= 0:
-            raise ValueError("w_2 matrix lora dimension lora_dim should be a positive integer")
-        self.lora_dim = lora_dim
+        if not isinstance(lokr_dim, int) or lokr_dim <= 0:
+            raise ValueError("w_2 matrix lora dimension lokr_dim should be a positive integer")
+        self.lokr_dim = lokr_dim
         self.use_w1 = False
         self.use_w2 = False
         # Mark the weight as unmerged
@@ -50,27 +50,27 @@ class LoKrLinear(nn.Linear):
         # determining lokr_alpha
         if isinstance(lokr_alpha, paddle.Tensor):
             lokr_alpha = lokr_alpha.detach().float().numpy()  # without casting, bf16 causes error
-        lokr_alpha = lora_dim if lokr_alpha is None or lokr_alpha == 0 else lokr_alpha
+        lokr_alpha = lokr_dim if lokr_alpha is None or lokr_alpha == 0 else lokr_alpha
         if self.use_w2 and self.use_w1:
-            lokr_alpha = lora_dim
-        self.scale = lokr_alpha / self.lora_dim
+            lokr_alpha = lokr_dim
+        self.scale = lokr_alpha / self.lokr_dim
 
         # Actual trainable parameters
-        if decompose_both and lora_dim < max(shape[0][0], shape[1][0]) / 2:
+        if decompose_both and lokr_dim < max(shape[0][0], shape[1][0]) / 2:
             self.lokr_w1_a = self.create_parameter(
-                shape=[shape[0][0], lora_dim],
-                dtype=self._dtype,
-                is_bias=False,
-                default_initializer=nn.initializer.KaimingUniform(
-                    negative_slope=math.sqrt(5), nonlinearity="leaky_relu"
-                ),
-            )
-            self.lokr_w1_b = self.create_parameter(
-                shape=[lora_dim, shape[1][0]],
+                shape=[shape[0][0], lokr_dim],
                 dtype=self._dtype,
                 is_bias=False,
                 attr=paddle.ParamAttr(
                     initializer=paddle.nn.initializer.Constant(value=0.0),
+                ),
+            )
+            self.lokr_w1_b = self.create_parameter(
+                shape=[lokr_dim, shape[1][0]],
+                dtype=self._dtype,
+                is_bias=False,
+                default_initializer=nn.initializer.KaimingUniform(
+                    negative_slope=math.sqrt(5), nonlinearity="leaky_relu"
                 ),
             )
         else:
@@ -84,9 +84,9 @@ class LoKrLinear(nn.Linear):
                 ),
             )  # a*c, 1-mode
 
-        if lora_dim < max(shape[0][1], shape[1][1]) / 2:
+        if lokr_dim < max(shape[0][1], shape[1][1]) / 2:
             self.lokr_w2_a = self.create_parameter(
-                shape=[shape[0][1], lora_dim],
+                shape=[shape[0][1], lokr_dim],
                 dtype=self._dtype,
                 is_bias=False,
                 attr=paddle.ParamAttr(
@@ -94,7 +94,7 @@ class LoKrLinear(nn.Linear):
                 ),
             )
             self.lokr_w2_b = self.create_parameter(
-                shape=[lora_dim, shape[1][1]],
+                shape=[lokr_dim, shape[1][1]],
                 dtype=self._dtype,
                 is_bias=False,
                 attr=paddle.ParamAttr(
@@ -158,15 +158,15 @@ class LoKrLinear(nn.Linear):
         Give detailed debug infos of LoKrModels by print(model) methods.
         """
         final_str = (
-            "in_features={in_feature} out_features={out_feature}bias={bias}\nlora_dim={lora_dim}\ndtype={dtype}\n"
+            "in_features={in_feature} out_features={out_feature}bias={bias}\nlokr_dim={lokr_dim}\ndtype={dtype}\n"
         )
         info_dict = {
             "in_feature": self.weight.shape[0],
             "out_feature": self.weight.shape[1],
             "bias": self.bias,
-            "lora_dim": self.lora_dim,
+            "lokr_dim": self.lokr_dim,
             "dtype": self._dtype,
-            "adapter_weight_sacle": self.scale,
+            "adapter_weight_scale": self.scale,
             "name": f", name={self.name}" if self.name else "",
         }
         if self.use_w1:

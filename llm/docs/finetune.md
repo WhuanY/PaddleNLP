@@ -130,6 +130,8 @@ python merge_lora_params.py \
 - `neftune_noise_alpha`: NEFT alpha 参数，默认为5.0。
 - `vera`: 是否开启 VeRA 微调策略，默认为 False。
 - `vera_rank`: VeRA 算法中 rank（秩）的值，默认为8。
+- `lokr`: 是否开启 LoKr 微调策略，默认为 False。
+- `lokr_rank`: LoKr 算法中 rank（秩）的值，默认为8。
 </div>
 
 <summary>&emsp; 数据参数（DataArgument）</summary><div>

@@ -80,7 +80,7 @@ from ..data import (
     DistDataLoader,
     default_data_collator,
 )
-from ..peft import LoRAModel, PrefixModelForCausalLM, VeRAModel
+from ..peft import LoKrModel, LoRAModel, PrefixModelForCausalLM, VeRAModel
 
 try:
     from ..quantization.quantization_linear import QuantizationLinear
@@ -97,6 +97,7 @@ from ..transformers.segment_parallel_utils import split_inputs_sequence_dim
 from ..transformers.tokenizer_utils import PretrainedTokenizer
 from ..utils.batch_sampler import DistributedBatchSampler as NlpDistributedBatchSampler
 from ..utils.env import (
+    LOKR_WEIGHTS_NAME,
     LORA_WEIGHTS_NAME,
     PADDLE_MASTER_WEIGHTS_INDEX_NAME,
     PADDLE_PEFT_WEIGHTS_INDEX_NAME,
@@ -398,6 +399,7 @@ class Trainer:
             isinstance(self.model, LoRAModel)
             or isinstance(self.model, PrefixModelForCausalLM)
             or isinstance(self.model, VeRAModel)
+            or isinstance(self.model, LoKrModel)
         ):
             if self.args.unified_checkpoint and "skip_save_model_weight" in self.args.unified_checkpoint_config:
                 self.args.unified_checkpoint_config.remove("skip_save_model_weight")
@@ -539,6 +541,8 @@ class Trainer:
                     convert_tp = True
             elif isinstance(self.model, VeRAModel):
                 weights_file = os.path.join(resume_from_checkpoint, VERA_WEIGHTS_NAME)
+            elif isinstance(self.model, LoKrModel):
+                weights_file = os.path.join(resume_from_checkpoint, LOKR_WEIGHTS_NAME)
             if self.args.dataset_rank == 0:
                 logger.info(f"Loading model from {resume_from_checkpoint} .")
 
@@ -596,6 +600,7 @@ class Trainer:
             isinstance(self.model, LoRAModel)
             or isinstance(self.model, PrefixModelForCausalLM)
             or isinstance(self.model, VeRAModel)
+            or isinstance(self.model, LoKrModel)
         ):
             self._load_from_peft_checkpoint(resume_from_checkpoint)
             self.runtime_timer.stop()
@@ -2619,6 +2624,7 @@ class Trainer:
             isinstance(self.model, LoRAModel)
             or isinstance(self.model, PrefixModelForCausalLM)
             or isinstance(self.model, VeRAModel)
+            or isinstance(self.model, LoKrModel)
         ):
             self.model.save_pretrained(
                 output_dir,
