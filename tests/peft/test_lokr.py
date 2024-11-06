@@ -28,7 +28,7 @@ from paddlenlp.transformers import AutoModel, BertModel
 DEFAULT_LINEAR_TEST_CONFIG = {
     "in_features": 4864,
     "out_features": 4864,
-    "lora_dim": 8,
+    "lokr_dim": 8,
     "lokr_alpha": 8,
     "factor": -1,
     "decompose_both": False,
@@ -37,7 +37,7 @@ DEFAULT_MODEL_TEST_CONFIG = {
     "base_model_name_or_path": "__internal_testing__/tiny-random-bert",
     "target_modules": [".*q_proj*.", ".*v_proj*."],
     "lokr_alpha": 8,
-    "lora_dim": 8,
+    "lokr_dim": 8,
     "decompose_both": False,
     "factor": -1,
 }
@@ -48,7 +48,7 @@ defaultTestLayer = LoKrLinear(**DEFAULT_LINEAR_TEST_CONFIG)
 class TestLoKrLayer(unittest.TestCase):
     def test_r_raise_exception(self):
         with self.assertRaises(ValueError):
-            LoKrLinear(in_features=16, out_features=8, lora_dim=0, lokr_alpha=8)
+            LoKrLinear(in_features=16, out_features=8, lokr_dim=0, lokr_alpha=8)
 
     def test_forward(self):
         def myForward():
@@ -64,7 +64,7 @@ class TestLoKrLayer(unittest.TestCase):
                 lokr_layer = LoKrLinear(
                     in_features=inFeatureRand,
                     out_features=outFeatureRand,
-                    lora_dim=8,
+                    lokr_dim=8,
                     lokr_alpha=8,
                     factor=-1,
                     decompose_both=False,
@@ -96,7 +96,7 @@ class TestLoKrLayer(unittest.TestCase):
                 lokr_layer = LoKrLinear(
                     in_features=inFeatureRand,
                     out_features=outFeatureRand,
-                    lora_dim=8,
+                    lokr_dim=8,
                     lokr_alpha=8,
                     factor=-1,
                     decompose_both=False,
@@ -137,7 +137,7 @@ class TestLoKrLayer(unittest.TestCase):
                 lokr_layer = LoKrLinear(
                     in_features=inFeatureRand,
                     out_features=outFeatureRand,
-                    lora_dim=8,
+                    lokr_dim=8,
                     lokr_alpha=8,
                     factor=-1,
                     decompose_both=False,
@@ -154,15 +154,14 @@ class TestLoKrModel(unittest.TestCase):
         input_ids = paddle.to_tensor(np.random.randint(100, 200, [1, 20]))
         model.eval()
         original_results_1 = model(input_ids)
-        lora_model = LoKrModel(model, lokr_config)
-        restored_model = lora_model.restore_original_model()
+        lokr_model = LoKrModel(model, lokr_config)
+        restored_model = lokr_model.restore_original_model()
         restored_model.eval()
         original_results_2 = restored_model(input_ids)
         self.assertIsNotNone(original_results_1)
         self.assertIsNotNone(original_results_2)
         self.assertIsInstance(restored_model, BertModel)
         self.assertTrue(paddle.allclose(original_results_1[0], original_results_2[0]))
-        print("pass testlokrmodel")
 
     def test_lokr_model_constructor(self):
         lokr_config = LoKrConfig(**DEFAULT_MODEL_TEST_CONFIG)
