@@ -104,9 +104,6 @@ def merge():
             lokr_name_list.append(key.split(".lokr")[0])
 
     lokr_name_list = list(set(lokr_name_list))
-
-    print("sdifhsd", lokr_name_list)
-
     for name in lokr_name_list:
         weight_process(name, lokr_config, model_state_dict)
 
