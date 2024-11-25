@@ -148,6 +148,13 @@ class TestLoKrLayer(unittest.TestCase):
 
 
 class TestLoKrModel(unittest.TestCase):
+    def test_tp_raise_exception(self):
+        with self.assertRaises(NotImplementedError):
+            lokr_config = LoKrConfig(**DEFAULT_MODEL_TEST_CONFIG, tensor_parallel_degree=2)
+            model = AutoModel.from_pretrained("__internal_testing__/tiny-random-bert")
+            lokr_model = LoKrModel(model, lokr_config)
+            lokr_model.eval()
+
     def test_lokr_model_restore(self):
         lokr_config = LoKrConfig(**DEFAULT_MODEL_TEST_CONFIG)
         model = AutoModel.from_pretrained("__internal_testing__/tiny-random-bert")
@@ -165,7 +172,6 @@ class TestLoKrModel(unittest.TestCase):
 
     def test_lokr_model_constructor(self):
         lokr_config = LoKrConfig(**DEFAULT_MODEL_TEST_CONFIG)
-        # turn off plm dropout for to test train vs test
         model = AutoModel.from_pretrained(
             "__internal_testing__/tiny-random-bert", hidden_dropout_prob=0, attention_probs_dropout_prob=0
         )
@@ -200,6 +206,46 @@ class TestLoKrModel(unittest.TestCase):
 
 
 class TestLoKrConfig(unittest.TestCase):
+    def test_to_dict(self):
+        config = LoKrConfig()
+        expected_dict = {
+            "base_model_name_or_path": None,
+            "target_modules": None,
+            "trainable_modules": None,
+            "trainable_bias": None,
+            "lokr_dim": 8,
+            "factor": -1,
+            "decompose_both": False,
+            "lokr_alpha": 0.0,
+            "merge_weight": False,
+            "tensor_parallel_degree": -1,
+            "dtype": None,
+        }
+        self.assertEqual(config.to_dict(), expected_dict)
+
+    def test_invalid_directory_save_pretrained(self):
+        config = LoKrConfig()
+        with TemporaryDirectory() as tempdir:
+            # Create a file instead of directory
+            invalid_dir = os.path.join(tempdir, "invalid_dir")
+            with open(invalid_dir, "w") as f:
+                f.write("This is a file, not a directory.")
+            with self.assertRaises(AssertionError):
+                config.save_pretrained(invalid_dir)
+
+    def test_from_pretrained_not_found(self):
+        with TemporaryDirectory() as tempdir:
+            with self.assertRaises(ValueError):
+                LoKrConfig.from_pretrained(tempdir)  # No config file in directory
+
+    def test_scaling_property(self):
+        lokr_config = LoKrConfig(lokr_alpha=10, lokr_dim=2)
+        self.assertEqual(lokr_config.scaling, 5.0)
+        lokr_config = LoKrConfig(lokr_alpha=0, lokr_dim=8)
+        self.assertEqual(lokr_config.scaling, 0.0)
+        lokr_config = LoKrConfig(lokr_alpha=0, lokr_dim=0)
+        self.assertEqual(lokr_config.scaling, 1.0)
+
     def test_save_load(self):
         with TemporaryDirectory() as tempdir:
             lokr_config = LoKrConfig(**DEFAULT_MODEL_TEST_CONFIG)

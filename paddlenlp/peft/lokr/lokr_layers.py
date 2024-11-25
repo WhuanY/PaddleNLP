@@ -23,7 +23,7 @@ import paddle.nn.functional as F
 # borrow heavily from:
 # https://github.com/KohakuBlueleaf/LyCORIS/blob/eb460098187f752a5d66406d3affade6f0a07ece/lycoris/modules/lokr.py
 class LoKrLinear(nn.Linear):
-    # LoKA implemented in a dense layer
+    # LoKr implemented in a dense layer
     def __init__(
         self,
         in_features: int,
