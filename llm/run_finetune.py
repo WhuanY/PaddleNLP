@@ -487,7 +487,7 @@ def main():
         else:
             model = LoKrModel.from_pretrained(model=model, lokr_path=model_args.lokr_path)
 
-        # For debug, you can print the model to see which layer is transformed into a lokr layer
+        # For debugging purpose, you can print the model to see which layer is transformed into a lokr layer
         # print(model)
         model.print_trainable_parameters()
 

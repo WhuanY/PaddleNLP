@@ -80,7 +80,7 @@ from ..data import (
     DistDataLoader,
     default_data_collator,
 )
-from ..peft import LoKrModel, LoRAModel, PrefixModelForCausalLM, VeRAModel
+from ..peft import LoKrModel, LoRAModel, PrefixModelForCausalLM, ReFTModel, VeRAModel
 
 try:
     from ..quantization.quantization_linear import QuantizationLinear
@@ -400,6 +400,7 @@ class Trainer:
             or isinstance(self.model, PrefixModelForCausalLM)
             or isinstance(self.model, VeRAModel)
             or isinstance(self.model, LoKrModel)
+            or isinstance(self.model, ReFTModel)
         ):
             if self.args.unified_checkpoint and "skip_save_model_weight" in self.args.unified_checkpoint_config:
                 self.args.unified_checkpoint_config.remove("skip_save_model_weight")
@@ -601,6 +602,7 @@ class Trainer:
             or isinstance(self.model, PrefixModelForCausalLM)
             or isinstance(self.model, VeRAModel)
             or isinstance(self.model, LoKrModel)
+            or isinstance(self.model, ReFTModel)
         ):
             self._load_from_peft_checkpoint(resume_from_checkpoint)
             self.runtime_timer.stop()

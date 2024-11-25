@@ -132,6 +132,11 @@ python merge_lora_params.py \
 - `vera_rank`: VeRA 算法中 rank（秩）的值，默认为8。
 - `lokr`: 是否开启 LoKr 微调策略，默认为 False。
 - `lokr_rank`: LoKr 算法中 rank（秩）的值，默认为8。
+- `use_long_sequence_strategies`: 是否使用长序列扩展策略，默认为 False。
+- `strategy_type`: 长序列扩展策略的类型，默认为 None。
+- `strategy_name`: 长序列扩展策略的具体名称，默认为 None。
+- `rope_scaling_factor`: 应用 RoPE 扩展策略时的缩放因子。
+- `lora_use_mixer`: 是否开启 MosLoRA 策略。
 </div>
 
 <summary>&emsp; 数据参数（DataArgument）</summary><div>
