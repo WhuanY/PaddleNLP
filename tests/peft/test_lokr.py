@@ -58,16 +58,18 @@ class TestLoKrLayer(unittest.TestCase):
             self.assertEqual(output.shape, [2, 4, DEFAULT_LINEAR_TEST_CONFIG["out_features"]])
 
         def randomForward():
-            for i in range(10):
+            for _ in range(50):
                 inFeatureRand = random.randint(100, 200)
                 outFeatureRand = random.randint(100, 200)
+                decompose_both_rand = random.choice([True, False])
+                factorRand = random.choice([-1, random.randint(2, min(inFeatureRand, outFeatureRand))])
                 lokr_layer = LoKrLinear(
                     in_features=inFeatureRand,
                     out_features=outFeatureRand,
                     lokr_dim=8,
                     lokr_alpha=8,
-                    factor=-1,
-                    decompose_both=False,
+                    factor=factorRand,
+                    decompose_both=decompose_both_rand,
                 )
                 input = paddle.randn([2, 4, inFeatureRand], "float32")
                 self.assertEqual(lokr_layer.scale, 1.0)
@@ -90,16 +92,18 @@ class TestLoKrLayer(unittest.TestCase):
             self.assertTrue(paddle.allclose(train_weight, eval_weight))
 
         def randomTrainEval():
-            for i in range(100):
-                inFeatureRand = random.randint(10, 30)
+            for _ in range(100):
+                inFeatureRand = random.randint(10, 50)
                 outFeatureRand = random.randint(10, 50)
+                decompose_both_rand = random.choice([True, False])
+                factorRand = random.choice([-1, random.randint(2, min(inFeatureRand, outFeatureRand))])
                 lokr_layer = LoKrLinear(
                     in_features=inFeatureRand,
                     out_features=outFeatureRand,
                     lokr_dim=8,
                     lokr_alpha=8,
-                    factor=-1,
-                    decompose_both=False,
+                    factor=factorRand,
+                    decompose_both=decompose_both_rand,
                 )
                 x = paddle.randn([2, 4, inFeatureRand], "float32")
                 lokr_layer.train()
@@ -115,7 +119,7 @@ class TestLoKrLayer(unittest.TestCase):
         randomTrainEval()
 
     def test_save_load(self):
-        for i in range(10):
+        for _ in range(10):
             with TemporaryDirectory() as tempdir:
                 weights_path = os.path.join(tempdir, "model.pdparams")
                 paddle.save(defaultTestLayer.state_dict(), weights_path)

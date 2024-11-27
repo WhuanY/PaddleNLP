@@ -47,9 +47,6 @@ class LoKrLinear(nn.Linear):
         shape = ((out_m, out_n), (in_m, in_n))
         self.op = F.linear
 
-        # determining lokr_alpha
-        if isinstance(lokr_alpha, paddle.Tensor):
-            lokr_alpha = lokr_alpha.detach().float().numpy()  # without casting, bf16 causes error
         lokr_alpha = lokr_dim if lokr_alpha is None or lokr_alpha == 0 else lokr_alpha
         if self.use_w2 and self.use_w1:
             lokr_alpha = lokr_dim
