@@ -81,7 +81,6 @@ from ..data import (
     default_data_collator,
     init_dataloader_comm_group,
 )
-
 from ..peft import LoKrModel, LoRAModel, PrefixModelForCausalLM, ReFTModel, VeRAModel
 
 try:
@@ -572,7 +571,7 @@ class Trainer:
             elif isinstance(self.model, ReFTModel):
                 self.model.from_pretrained(resume_from_checkpoint, self.model.model)
                 return
-              
+
             if self.args.dataset_rank == 0:
                 logger.info(f"Loading model from {resume_from_checkpoint} .")
 
